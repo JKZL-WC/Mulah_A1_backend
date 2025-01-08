@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, jsonify
-from scraper import fetch_articles_with_date_limit
+from scraper import fetch_articles
 from datetime import datetime
 
 # Initialize Flask application
@@ -14,7 +14,7 @@ def home():
         # Date limit for filtering articles
         date_limit = datetime(2024, 12, 1)
         # Fetch articles using the scraper
-        articles = fetch_articles_with_date_limit(url, date_limit)
+        articles = fetch_articles(url, date_limit)
         return render_template("index.html", articles=articles)
     except Exception as e:
         # Return error response if scraping fails

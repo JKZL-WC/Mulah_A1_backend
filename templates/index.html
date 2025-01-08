@@ -23,9 +23,9 @@
         </div>
         <div class="description">{{ article.description }}</div>
         <div class="date">
-            Published: {{ article.date.strftime('%Y-%m-%d') if article.date else "Unknown" }}
+            Published: {{ article.date }}
         </div>
-    </div>
+    </div>    
     {% endfor %}
 </body>
 </html>

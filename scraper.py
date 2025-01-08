@@ -1,44 +1,23 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
+from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from datetime import datetime
+import time
 
 def fetch_articles(url, date_limit):
-    # Setup Selenium WebDriver with headers
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    
-    # Set custom headers
-    driver.execute_cdp_cmd(
-        "Network.setExtraHTTPHeaders",
-        {"headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive"
-        }}
-    )
-
-    driver.get(url)
-
     articles = []
-    stop_clicking = False  # Stop clicking when date limit is reached
 
-    try:
-        while not stop_clicking:
-            # Use BeautifulSoup to parse the page
-            soup = BeautifulSoup(driver.page_source, 'html.parser')
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(url)
+
+        while True:
+            # Extract current page content
+            html = page.content()
+            soup = BeautifulSoup(html, 'html.parser')
+            page_articles = []
 
             for article in soup.find_all('li', class_='blogroll ARTICLE'):
-                # Extract details
                 link_tag = article.find('a', href=True)
                 title_tag = article.find('div', class_='caption')
                 description_tag = article.find('div', class_='deck')
@@ -49,38 +28,38 @@ def fetch_articles(url, date_limit):
                 description = description_tag.text.strip() if description_tag else None
                 published_date = date_tag.text.strip() if date_tag else None
 
-                # Convert date
                 try:
                     date_obj = datetime.strptime(published_date, "%b. %d, %Y") if published_date else None
                 except ValueError:
                     date_obj = None
 
-                # Stop if the date exceeds the limit
+                # Stop if article date is earlier than the date limit
                 if date_obj and date_obj < date_limit:
-                    stop_clicking = True
-                    break
+                    browser.close()
+                    articles.extend(page_articles)
+                    articles.sort(key=lambda x: x['date'], reverse=True)
+                    return articles
 
-                if date_obj and date_obj >= date_limit:
-                    articles.append({
-                        'title': title,
-                        'description': description,
-                        'link': link,
-                        'date': date_obj
-                    })
+                # Append formatted date as string
+                page_articles.append({
+                    'title': title,
+                    'description': description,
+                    'link': link,
+                    'date': date_obj.strftime('%Y-%m-%d') if date_obj else "Unknown"
+                })
 
-            # Stop the loop if no "Show More" button
-            if stop_clicking:
-                break
+            # Append current page articles to all articles
+            articles.extend(page_articles)
 
+            # Try clicking "Show More" button to load more articles
             try:
-                show_more_button = driver.find_element(By.ID, "showmore")
-                show_more_button.click()
-            except Exception as e:
-                print("No more 'Show More' button or error:", e)
+                page.click("#showmore")
+                #time.sleep(2)  # Wait for new content to load
+            except:
+                print("No more 'Show More' button.")
                 break
 
-    finally:
-        driver.quit()
+        browser.close()
 
     # Sort articles by date descending
     articles.sort(key=lambda x: x['date'], reverse=True)

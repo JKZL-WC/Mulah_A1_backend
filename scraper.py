@@ -5,51 +5,57 @@ from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from datetime import datetime
-import time
 
 def fetch_articles(url, date_limit):
-    # setup Selenium WebDriver
+    # Setup Selenium WebDriver with headers
     options = Options()
-    options.add_argument("--headless")  
-    options.add_argument("--disable-gpu")  
-    options.add_argument("--no-sandbox")  
-    options.add_argument("--disable-dev-shm-usage")  
+    options.add_argument("--headless")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    
+    # Set custom headers
+    driver.execute_cdp_cmd(
+        "Network.setExtraHTTPHeaders",
+        {"headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive"
+        }}
+    )
+
     driver.get(url)
 
     articles = []
-    stop_clicking = False  # check to stop to press
+    stop_clicking = False  # Stop clicking when date limit is reached
 
     try:
         while not stop_clicking:
-            # use BeautifulSoup to run the page
+            # Use BeautifulSoup to parse the page
             soup = BeautifulSoup(driver.page_source, 'html.parser')
 
             for article in soup.find_all('li', class_='blogroll ARTICLE'):
-                # link
+                # Extract details
                 link_tag = article.find('a', href=True)
-                link = link_tag['href'] if link_tag else None
-
-                # title
                 title_tag = article.find('div', class_='caption')
-                title = title_tag.text.strip() if title_tag else None
-
-                # description
                 description_tag = article.find('div', class_='deck')
-                description = description_tag.text.strip() if description_tag else None
-
-                # Date
                 date_tag = article.find('time', class_='datepublished')
+
+                link = link_tag['href'] if link_tag else None
+                title = title_tag.text.strip() if title_tag else None
+                description = description_tag.text.strip() if description_tag else None
                 published_date = date_tag.text.strip() if date_tag else None
 
-                # change to datetime
+                # Convert date
                 try:
                     date_obj = datetime.strptime(published_date, "%b. %d, %Y") if published_date else None
                 except ValueError:
                     date_obj = None
 
-                # stop if the date in over
+                # Stop if the date exceeds the limit
                 if date_obj and date_obj < date_limit:
                     stop_clicking = True
                     break
@@ -62,15 +68,13 @@ def fetch_articles(url, date_limit):
                         'date': date_obj
                     })
 
-            # stop to loop
+            # Stop the loop if no "Show More" button
             if stop_clicking:
                 break
 
-            # press "Show More"
             try:
-                show_more_button = driver.find_element(By.ID, "showmore") 
+                show_more_button = driver.find_element(By.ID, "showmore")
                 show_more_button.click()
-                # time.sleep(2)
             except Exception as e:
                 print("No more 'Show More' button or error:", e)
                 break
@@ -78,6 +82,6 @@ def fetch_articles(url, date_limit):
     finally:
         driver.quit()
 
-    # sort by date desc
+    # Sort articles by date descending
     articles.sort(key=lambda x: x['date'], reverse=True)
     return articles

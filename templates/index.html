@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtered Articles</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #fff; color: #000; margin: 0; padding: 20px; }
+        a { text-decoration: none; color: #000; }
+        a:hover { text-decoration: underline; }
+        .article { margin-bottom: 15px; }
+        .title { font-size: 1.2em; font-weight: bold; }
+        .description { font-size: 1em; color: #555; margin-top: 5px; }
+        .date { font-size: 0.9em; color: #777; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Mashable SEA Articles</h1>
+    {% for article in articles %}
+    <div class="article">
+        <div class="title">
+            <a href="{{ article.link }}" target="_blank">{{ article.title }}</a>
+        </div>
+        <div class="description">{{ article.description }}</div>
+        <div class="date">
+            Published: {{ article.date.strftime('%Y-%m-%d') if article.date else "Unknown" }}
+        </div>
+    </div>
+    {% endfor %}
+</body>
+</html>
